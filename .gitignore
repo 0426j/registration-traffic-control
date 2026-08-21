@@ -1,0 +1,27 @@
+# AI 작업 관련 파일 — 로컬엔 유지하되 공개 레포엔 올리지 않음 (kira/inkwell와 동일 패턴)
+CLAUDE.md
+AGENTS.md
+.claude/
+docs/domain-reference.md
+
+# Gradle / Kotlin
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+# IDE
+.idea/
+*.iml
+out/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env
+.env
+.env.*
+!.env.example
