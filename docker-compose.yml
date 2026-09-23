@@ -1,0 +1,33 @@
+name: registration-traffic-control
+
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: rtc-postgres
+    environment:
+      POSTGRES_DB: rtc
+      POSTGRES_USER: rtc
+      POSTGRES_PASSWORD: rtc
+    ports:
+      - "5432:5432"
+    volumes:
+      - rtc_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rtc -d rtc"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: rtc-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  rtc_pgdata:
