@@ -1,5 +1,6 @@
 package com.rtc.registration
 
+import com.rtc.registration.config.FlywayContextInitializer
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.runApplication
 
@@ -7,5 +8,7 @@ import org.springframework.boot.runApplication
 class RegistrationTrafficControlApplication
 
 fun main(args: Array<String>) {
-    runApplication<RegistrationTrafficControlApplication>(*args)
+    runApplication<RegistrationTrafficControlApplication>(*args) {
+        addInitializers(FlywayContextInitializer())
+    }
 }
