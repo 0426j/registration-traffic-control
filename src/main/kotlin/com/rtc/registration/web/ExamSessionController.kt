@@ -2,6 +2,7 @@ package com.rtc.registration.web
 
 import com.rtc.registration.domain.ExamSession
 import com.rtc.registration.repository.ExamSessionRepository
+import com.rtc.registration.service.ExamSessionSeatCounter
 import jakarta.validation.constraints.Min
 import jakarta.validation.constraints.NotBlank
 import org.springframework.http.HttpStatus
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController
 @RequestMapping("/api/exam-sessions")
 class ExamSessionController(
     private val examSessionRepository: ExamSessionRepository,
+    private val seatCounter: ExamSessionSeatCounter,
 ) {
     data class CreateExamSessionRequest(
         @field:NotBlank val name: String,
@@ -36,6 +38,7 @@ class ExamSessionController(
             examSessionRepository.save(
                 ExamSession(name = request.name, capacity = request.capacity, seatsRemaining = request.capacity),
             )
+        seatCounter.initialize(saved.id!!, saved.capacity)
         return ResponseEntity.status(HttpStatus.CREATED).body(saved.toResponse())
     }
 

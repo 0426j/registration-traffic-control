@@ -12,17 +12,14 @@ import org.springframework.boot.test.web.server.LocalServerPort
 import org.springframework.http.MediaType
 import org.springframework.test.context.ContextConfiguration
 import org.springframework.test.web.servlet.client.RestTestClient
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.Executors
-import java.util.concurrent.TimeUnit
 
 /**
- * 락 없는 [com.rtc.registration.service.RegistrationService]가 동시 요청 하에서
- * 정원을 초과해 접수를 허용한다는 것을 실제 HTTP 레벨에서 재현하는 테스트.
+ * 락 없는(`strategy=none`) 접수가 동시 요청 하에서 정원을 초과해 허용한다는 것을
+ * 실제 HTTP 레벨에서 재현하는 테스트.
  *
  * 좌석 10석짜리 회차에 50개 요청을 동시에 쏴서, 성공한 접수 수가 정원(10)을
- * 넘는지 확인한다 — 넘는 것이 "통과"이며, 이 프로젝트가 다음 단계(락 3종
- * 비교)에서 고칠 문제가 실제로 존재함을 증명하는 것이 이 테스트의 목적이다.
+ * 넘는지 확인한다 — 넘는 것이 "통과"이며, 이 문제를 고친 3가지 전략은
+ * [ConcurrencyControlComparisonTest]에서 검증한다.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ContextConfiguration(initializers = [FlywayContextInitializer::class])
@@ -51,32 +48,14 @@ class OverbookingReproductionTest {
                 .responseBody!!
                 .id
 
-        val readyLatch = CountDownLatch(concurrentRequests)
-        val startLatch = CountDownLatch(1)
-        val doneLatch = CountDownLatch(concurrentRequests)
-        val executor = Executors.newFixedThreadPool(concurrentRequests)
-
-        repeat(concurrentRequests) { i ->
-            executor.submit {
-                readyLatch.countDown()
-                startLatch.await()
-                try {
-                    client
-                        .post()
-                        .uri("/api/exam-sessions/$examSessionId/registrations")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .body(RegistrationController.RegisterRequest(userId = "user-$i"))
-                        .exchange()
-                } finally {
-                    doneLatch.countDown()
-                }
-            }
+        fireConcurrentRequests(concurrentRequests) { i ->
+            client
+                .post()
+                .uri("/api/exam-sessions/$examSessionId/registrations?strategy=none")
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(RegistrationController.RegisterRequest(userId = "user-$i"))
+                .exchange()
         }
-
-        readyLatch.await(10, TimeUnit.SECONDS)
-        startLatch.countDown()
-        doneLatch.await(30, TimeUnit.SECONDS)
-        executor.shutdown()
 
         val successfulRegistrations = registrationRepository.countByExamSessionId(examSessionId)
 
