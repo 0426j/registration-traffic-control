@@ -57,8 +57,12 @@ class QueueBurstAbsorptionTest {
                         .post()
                         .uri("/api/exam-sessions/$examSessionId/registrations/queue")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .body(QueuedRegistrationController.QueueRegisterRequest(userId = "user-$i"))
-                        .exchange()
+                        .body(
+                            QueuedRegistrationController.QueueRegisterRequest(
+                                userId = "user-$i",
+                                idempotencyKey = "$examSessionId-user-$i",
+                            ),
+                        ).exchange()
                     enqueueDurationsMs.add((System.nanoTime() - start) / 1_000_000)
                 }
             }

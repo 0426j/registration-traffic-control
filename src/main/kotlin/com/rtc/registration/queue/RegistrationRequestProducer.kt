@@ -17,10 +17,17 @@ class RegistrationRequestProducer(
     fun enqueue(
         examSessionId: Long,
         userId: String,
+        idempotencyKey: String,
     ): StreamMessageId {
         val stream = redissonClient.getStream<String, String>(STREAM_KEY)
         return stream.add(
-            StreamAddArgs.entries(mapOf(FIELD_EXAM_SESSION_ID to examSessionId.toString(), FIELD_USER_ID to userId)),
+            StreamAddArgs.entries(
+                mapOf(
+                    FIELD_EXAM_SESSION_ID to examSessionId.toString(),
+                    FIELD_USER_ID to userId,
+                    FIELD_IDEMPOTENCY_KEY to idempotencyKey,
+                ),
+            ),
         )
     }
 
@@ -30,5 +37,6 @@ class RegistrationRequestProducer(
         const val CONSUMER_NAME = "worker-1"
         const val FIELD_EXAM_SESSION_ID = "examSessionId"
         const val FIELD_USER_ID = "userId"
+        const val FIELD_IDEMPOTENCY_KEY = "idempotencyKey"
     }
 }

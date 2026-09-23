@@ -28,3 +28,9 @@ management:
 
 server:
   port: ${SERVER_PORT:8080}
+
+payment:
+  mock:
+    failure-rate: ${PAYMENT_MOCK_FAILURE_RATE:0.2}
+    min-delay-ms: ${PAYMENT_MOCK_MIN_DELAY_MS:20}
+    max-delay-ms: ${PAYMENT_MOCK_MAX_DELAY_MS:150}

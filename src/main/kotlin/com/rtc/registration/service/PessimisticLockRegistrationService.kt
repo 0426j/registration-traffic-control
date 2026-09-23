@@ -19,6 +19,7 @@ class PessimisticLockRegistrationService(
     override fun register(
         examSessionId: Long,
         userId: String,
+        idempotencyKey: String,
     ): Registration {
         val session =
             examSessionRepository.findByIdForUpdate(examSessionId)
@@ -32,7 +33,21 @@ class PessimisticLockRegistrationService(
         examSessionRepository.save(session)
 
         return registrationRepository.save(
-            Registration(examSessionId = examSessionId, userId = userId),
+            Registration(
+                examSessionId = examSessionId,
+                userId = userId,
+                idempotencyKey = idempotencyKey,
+                strategy = "pessimistic",
+            ),
         )
+    }
+
+    @Transactional
+    override fun release(examSessionId: Long) {
+        val session =
+            examSessionRepository.findByIdForUpdate(examSessionId)
+                ?: throw ExamSessionNotFoundException(examSessionId)
+        session.seatsRemaining += 1
+        examSessionRepository.save(session)
     }
 }

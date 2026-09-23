@@ -2,6 +2,8 @@ package com.rtc.registration.domain
 
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
+import jakarta.persistence.EnumType
+import jakarta.persistence.Enumerated
 import jakarta.persistence.GeneratedValue
 import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
@@ -18,6 +20,13 @@ class Registration(
     val examSessionId: Long,
     @Column(name = "user_id")
     val userId: String,
+    @Column(name = "idempotency_key")
+    val idempotencyKey: String,
+    @Column(name = "strategy")
+    val strategy: String,
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status")
+    var status: RegistrationStatus = RegistrationStatus.PENDING_PAYMENT,
     @Column(name = "registered_at")
     val registeredAt: Instant = Instant.now(),
 )

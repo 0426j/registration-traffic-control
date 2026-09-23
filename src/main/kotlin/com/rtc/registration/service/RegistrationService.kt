@@ -9,12 +9,15 @@ import com.rtc.registration.domain.Registration
  * - [OptimisticLockRegistrationService] ("optimistic"): compare-and-set + 재시도
  * - [RedisAtomicRegistrationService] ("redis"): Redisson AtomicLong 원자적 차감
  *
- * [com.rtc.registration.web.RegistrationController]가 `strategy` 파라미터로
- * 빈 이름을 골라 위임한다.
+ * [IdempotentRegistrationDispatcher]가 `strategy` 이름으로 빈을 골라 위임한다.
  */
 interface RegistrationService {
     fun register(
         examSessionId: Long,
         userId: String,
+        idempotencyKey: String,
     ): Registration
+
+    /** 결제 실패 등으로 접수를 취소할 때, 확보했던 좌석을 되돌린다. */
+    fun release(examSessionId: Long)
 }

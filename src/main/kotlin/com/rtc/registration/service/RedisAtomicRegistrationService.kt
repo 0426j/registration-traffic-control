@@ -24,6 +24,7 @@ class RedisAtomicRegistrationService(
     override fun register(
         examSessionId: Long,
         userId: String,
+        idempotencyKey: String,
     ): Registration {
         val seatCounter = redissonClient.getAtomicLong(ExamSessionSeatCounter.key(examSessionId))
         val remaining = seatCounter.decrementAndGet()
@@ -34,7 +35,11 @@ class RedisAtomicRegistrationService(
         }
 
         return registrationRepository.save(
-            Registration(examSessionId = examSessionId, userId = userId),
+            Registration(examSessionId = examSessionId, userId = userId, idempotencyKey = idempotencyKey, strategy = "redis"),
         )
+    }
+
+    override fun release(examSessionId: Long) {
+        redissonClient.getAtomicLong(ExamSessionSeatCounter.key(examSessionId)).incrementAndGet()
     }
 }

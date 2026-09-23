@@ -22,6 +22,7 @@ class QueuedRegistrationController(
 ) {
     data class QueueRegisterRequest(
         @field:NotBlank val userId: String,
+        @field:NotBlank val idempotencyKey: String,
     )
 
     data class QueuedResponse(
@@ -35,7 +36,7 @@ class QueuedRegistrationController(
         @PathVariable examSessionId: Long,
         @RequestBody request: QueueRegisterRequest,
     ): ResponseEntity<QueuedResponse> {
-        val requestId = registrationRequestProducer.enqueue(examSessionId, request.userId)
+        val requestId = registrationRequestProducer.enqueue(examSessionId, request.userId, request.idempotencyKey)
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(
             QueuedResponse(requestId.toString(), examSessionId, request.userId),
         )

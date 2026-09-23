@@ -32,6 +32,7 @@ class OptimisticLockRegistrationService(
     override fun register(
         examSessionId: Long,
         userId: String,
+        idempotencyKey: String,
     ): Registration {
         repeat(MAX_ATTEMPTS) {
             val registration =
@@ -53,12 +54,41 @@ class OptimisticLockRegistrationService(
                         )
 
                     if (updatedRows == 1) {
-                        registrationRepository.save(Registration(examSessionId = examSessionId, userId = userId))
+                        registrationRepository.save(
+                            Registration(
+                                examSessionId = examSessionId,
+                                userId = userId,
+                                idempotencyKey = idempotencyKey,
+                                strategy = "optimistic",
+                            ),
+                        )
                     } else {
                         null
                     }
                 }
             if (registration != null) return registration
+        }
+        throw OptimisticLockRetryExhaustedException(examSessionId)
+    }
+
+    override fun release(examSessionId: Long) {
+        repeat(MAX_ATTEMPTS) {
+            val done =
+                newTransaction.execute {
+                    val session =
+                        examSessionRepository
+                            .findById(examSessionId)
+                            .orElseThrow { ExamSessionNotFoundException(examSessionId) }
+
+                    val updatedRows =
+                        examSessionRepository.compareAndSetSeatsRemaining(
+                            examSessionId,
+                            session.seatsRemaining,
+                            session.seatsRemaining + 1,
+                        )
+                    updatedRows == 1
+                }
+            if (done == true) return
         }
         throw OptimisticLockRetryExhaustedException(examSessionId)
     }

@@ -15,3 +15,7 @@ class OptimisticLockRetryExhaustedException(
 class UnknownRegistrationStrategyException(
     strategy: String,
 ) : RuntimeException("unknown registration strategy: $strategy")
+
+class RegistrationNotFoundException(
+    registrationId: Long,
+) : RuntimeException("registration not found: $registrationId")

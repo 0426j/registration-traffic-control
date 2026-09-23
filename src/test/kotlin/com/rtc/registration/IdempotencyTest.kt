@@ -14,16 +14,13 @@ import org.springframework.test.context.ContextConfiguration
 import org.springframework.test.web.servlet.client.RestTestClient
 
 /**
- * 락 없는(`strategy=none`) 접수가 동시 요청 하에서 정원을 초과해 허용한다는 것을
- * 실제 HTTP 레벨에서 재현하는 테스트.
- *
- * 좌석 10석짜리 회차에 50개 요청을 동시에 쏴서, 성공한 접수 수가 정원(10)을
- * 넘는지 확인한다 — 넘는 것이 "통과"이며, 이 문제를 고친 3가지 전략은
- * [ConcurrencyControlComparisonTest]에서 검증한다.
+ * 같은 idempotencyKey로 두 번 요청해도(네트워크 재시도 등으로 클라이언트가
+ * 중복 전송하는 상황을 흉내냄) 좌석이 두 번 소모되지 않고, 두 응답이 같은
+ * 접수를 가리켜야 한다.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ContextConfiguration(initializers = [FlywayContextInitializer::class])
-class OverbookingReproductionTest {
+class IdempotencyTest {
     @LocalServerPort
     private var port: Int = 0
 
@@ -31,9 +28,7 @@ class OverbookingReproductionTest {
     private lateinit var registrationRepository: RegistrationRepository
 
     @Test
-    fun `concurrent requests overbook a lock-free registration`() {
-        val capacity = 10
-        val concurrentRequests = 50
+    fun `repeating the same idempotency key does not consume a second seat`() {
         val client = RestTestClient.bindToServer().baseUrl("http://localhost:$port").build()
 
         val examSessionId =
@@ -41,26 +36,33 @@ class OverbookingReproductionTest {
                 .post()
                 .uri("/api/exam-sessions")
                 .contentType(MediaType.APPLICATION_JSON)
-                .body(ExamSessionController.CreateExamSessionRequest(name = "overbooking-test", capacity = capacity))
+                .body(ExamSessionController.CreateExamSessionRequest(name = "idempotency-test", capacity = 1))
                 .exchange()
                 .expectBody(ExamSessionController.ExamSessionResponse::class.java)
                 .returnResult()
                 .responseBody!!
                 .id
 
-        fireConcurrentRequests(concurrentRequests) { i ->
+        val idempotencyKey = "$examSessionId-retry-me"
+        val request = RegistrationController.RegisterRequest(userId = "retrier", idempotencyKey = idempotencyKey)
+
+        fun submit() =
             client
                 .post()
-                .uri("/api/exam-sessions/$examSessionId/registrations?strategy=none")
+                .uri("/api/exam-sessions/$examSessionId/registrations?strategy=redis")
                 .contentType(MediaType.APPLICATION_JSON)
-                .body(RegistrationController.RegisterRequest(userId = "user-$i", idempotencyKey = "$examSessionId-user-$i"))
+                .body(request)
                 .exchange()
-        }
+                .expectBody(RegistrationController.RegistrationResponse::class.java)
+                .returnResult()
+                .responseBody!!
 
-        val successfulRegistrations = registrationRepository.countByExamSessionId(examSessionId)
+        val first = submit()
+        val second = submit()
 
-        assertThat(successfulRegistrations)
-            .describedAs("정원 %d석인데 락이 없어 성공한 접수 수가 정원을 초과해야 이 테스트의 목적(버그 재현)이 성립한다", capacity)
-            .isGreaterThan(capacity.toLong())
+        assertThat(second.id).isEqualTo(first.id)
+        assertThat(registrationRepository.countByExamSessionId(examSessionId))
+            .describedAs("같은 idempotencyKey를 두 번 보내도 좌석 1개짜리 회차에 행이 1개만 생겨야 한다")
+            .isEqualTo(1L)
     }
 }

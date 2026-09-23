@@ -3,6 +3,7 @@ package com.rtc.registration.web
 import com.rtc.registration.service.ExamSessionNotFoundException
 import com.rtc.registration.service.NoSeatsRemainingException
 import com.rtc.registration.service.OptimisticLockRetryExhaustedException
+import com.rtc.registration.service.RegistrationNotFoundException
 import com.rtc.registration.service.UnknownRegistrationStrategyException
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
@@ -30,4 +31,8 @@ class GlobalExceptionHandler {
     @ExceptionHandler(UnknownRegistrationStrategyException::class)
     fun handleUnknownStrategy(ex: UnknownRegistrationStrategyException): ResponseEntity<ErrorResponse> =
         ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ErrorResponse(ex.message ?: "bad request"))
+
+    @ExceptionHandler(RegistrationNotFoundException::class)
+    fun handleRegistrationNotFound(ex: RegistrationNotFoundException): ResponseEntity<ErrorResponse> =
+        ResponseEntity.status(HttpStatus.NOT_FOUND).body(ErrorResponse(ex.message ?: "not found"))
 }

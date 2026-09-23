@@ -59,7 +59,7 @@ class ConcurrencyControlComparisonTest {
                         .post()
                         .uri("/api/exam-sessions/$examSessionId/registrations?strategy=$strategy")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .body(RegistrationController.RegisterRequest(userId = "user-$i"))
+                        .body(RegistrationController.RegisterRequest(userId = "user-$i", idempotencyKey = "$examSessionId-user-$i"))
                         .exchange()
                 }
             }
