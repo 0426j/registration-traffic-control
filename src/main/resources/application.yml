@@ -32,6 +32,9 @@ management:
 
 server:
   port: ${SERVER_PORT:8080}
+  tomcat:
+    mbeanregistry:
+      enabled: true
 
 payment:
   mock:
