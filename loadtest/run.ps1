@@ -1,4 +1,4 @@
-﻿# 사용: ./loadtest/run.ps1 -Mode sync -Strategy redis -Capacity 500 -Rate 300 -Duration 20s
+﻿# 사용: ./loadtest/run.ps1 -Mode sync -Strategy redis -Capacity 500 -Rate 300 -Duration 20s [-Run 1]
 # 사전 조건: docker compose up -d, 앱이 8080에서 실행 중(./gradlew bootRun).
 param(
     [ValidateSet('sync', 'queue')][string]$Mode = 'sync',
@@ -6,14 +6,15 @@ param(
     [int]$Capacity = 500,
     [int]$Rate = 300,
     [string]$Duration = '20s',
-    [bool]$Pay = $false
+    [bool]$Pay = $false,
+    [string]$Run = '1'
 )
 
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $root = Split-Path $PSScriptRoot -Parent
 $outDir = Join-Path $PSScriptRoot 'results'
 New-Item -ItemType Directory -Force $outDir | Out-Null
-$tag = "$Mode-$Strategy-$Rate" + "rps"
+$tag = "$Mode-$Strategy-$Rate" + "rps-run$Run"
 
 docker run --rm `
     --add-host=host.docker.internal:host-gateway `
