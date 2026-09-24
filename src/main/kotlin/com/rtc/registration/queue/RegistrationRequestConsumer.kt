@@ -3,8 +3,11 @@ package com.rtc.registration.queue
 import com.rtc.registration.service.ExamSessionNotFoundException
 import com.rtc.registration.service.IdempotentRegistrationDispatcher
 import com.rtc.registration.service.NoSeatsRemainingException
+import io.micrometer.core.instrument.Gauge
+import io.micrometer.core.instrument.MeterRegistry
 import jakarta.annotation.PostConstruct
 import jakarta.annotation.PreDestroy
+import org.redisson.api.RStream
 import org.redisson.api.RedissonClient
 import org.redisson.api.stream.StreamCreateGroupArgs
 import org.redisson.api.stream.StreamReadGroupArgs
@@ -25,6 +28,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 class RegistrationRequestConsumer(
     private val redissonClient: RedissonClient,
     private val dispatcher: IdempotentRegistrationDispatcher,
+    private val meterRegistry: MeterRegistry,
 ) {
     private val running = AtomicBoolean(true)
     private lateinit var workerThread: Thread
@@ -37,6 +41,11 @@ class RegistrationRequestConsumer(
         }.onFailure { ex ->
             log.debug("consumer group already exists (expected on restart): {}", ex.message)
         }
+
+        Gauge
+            .builder("registration.queue.backlog") { backlog(stream) }
+            .description("아직 컨슈머가 읽지 않은 메시지(lag) + 읽었지만 ack 전인 메시지(pending) 수")
+            .register(meterRegistry)
 
         workerThread = Thread(::pollLoop, "registration-queue-worker")
         workerThread.isDaemon = true
@@ -76,15 +85,25 @@ class RegistrationRequestConsumer(
         }
     }
 
+    private fun backlog(stream: RStream<String, String>): Double =
+        stream
+            .listGroups()
+            .firstOrNull { it.name == RegistrationRequestProducer.GROUP_NAME }
+            ?.let { (it.lag + it.pending).toDouble() }
+            ?: 0.0
+
     private fun processMessage(fields: Map<String, String>) {
         val examSessionId = fields[RegistrationRequestProducer.FIELD_EXAM_SESSION_ID]!!.toLong()
         val userId = fields[RegistrationRequestProducer.FIELD_USER_ID]!!
         val idempotencyKey = fields[RegistrationRequestProducer.FIELD_IDEMPOTENCY_KEY]!!
         try {
             dispatcher.register("redis", examSessionId, userId, idempotencyKey)
+            meterRegistry.counter("registration.queue.processed", "result", "success").increment()
         } catch (ex: NoSeatsRemainingException) {
+            meterRegistry.counter("registration.queue.processed", "result", "no_seats").increment()
             log.info("registration rejected, no seats remaining: examSessionId={}", examSessionId)
         } catch (ex: ExamSessionNotFoundException) {
+            meterRegistry.counter("registration.queue.processed", "result", "dropped").increment()
             log.warn("registration dropped, exam session not found: examSessionId={}", examSessionId)
         }
     }

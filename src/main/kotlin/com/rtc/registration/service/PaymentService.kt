@@ -3,6 +3,7 @@ package com.rtc.registration.service
 import com.rtc.registration.domain.Registration
 import com.rtc.registration.domain.RegistrationStatus
 import com.rtc.registration.repository.RegistrationRepository
+import io.micrometer.core.instrument.MeterRegistry
 import org.springframework.stereotype.Service
 import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.support.TransactionTemplate
@@ -24,6 +25,7 @@ class PaymentService(
     private val registrationServices: Map<String, RegistrationService>,
     private val mockPaymentGateway: MockPaymentGateway,
     transactionManager: PlatformTransactionManager,
+    private val meterRegistry: MeterRegistry,
 ) {
     private val transactionTemplate = TransactionTemplate(transactionManager)
 
@@ -37,6 +39,7 @@ class PaymentService(
         }
 
         val result = mockPaymentGateway.charge(amount)
+        meterRegistry.counter("payment.result", "result", result.name.lowercase()).increment()
         return applyResult(registrationId, result)
     }
 

@@ -1,5 +1,6 @@
 package com.rtc.registration.queue
 
+import io.micrometer.core.instrument.MeterRegistry
 import org.redisson.api.RedissonClient
 import org.redisson.api.StreamMessageId
 import org.redisson.api.stream.StreamAddArgs
@@ -13,6 +14,7 @@ import org.springframework.stereotype.Component
 @Component
 class RegistrationRequestProducer(
     private val redissonClient: RedissonClient,
+    private val meterRegistry: MeterRegistry,
 ) {
     fun enqueue(
         examSessionId: Long,
@@ -20,6 +22,7 @@ class RegistrationRequestProducer(
         idempotencyKey: String,
     ): StreamMessageId {
         val stream = redissonClient.getStream<String, String>(STREAM_KEY)
+        meterRegistry.counter("registration.queue.enqueued").increment()
         return stream.add(
             StreamAddArgs.entries(
                 mapOf(
